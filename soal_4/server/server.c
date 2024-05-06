@@ -6,9 +6,10 @@
 #include <time.h>
 
 #define PORT 6000
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 8192
 #define CSV_FILE "../myanimelist.csv"
 #define LOG_FILE "../change.log"
+#define LINE_WITH_NUMBER_BUFFER_SIZE 10000
 
 void logAnimeChange(const char *message, const char *type) {
     time_t now = time(NULL);
@@ -28,15 +29,22 @@ void logAnimeChange(const char *message, const char *type) {
 void displayAllAnime(int client_socket) {
     char buffer[BUFFER_SIZE];
     char command[BUFFER_SIZE];
-    sprintf(command, "awk 'NR>1' %s", CSV_FILE); // Memulai dari baris pertama 
+    sprintf(command, "awk -F',' '{ print NR, $3 }' %s", CSV_FILE); // Memulai dari baris pertama 
     FILE *fp = popen(command, "r");
     if (fp == NULL) {
         perror("Error executing command");
         strcpy(buffer, "Error executing command");
     } else {
-        while (fgets(buffer, BUFFER_SIZE, fp) != NULL) {
-            // Send response to client
+        int line_number = 1;
+        
+        while (fgets(buffer, BUFFER_SIZE - 16, fp) != NULL) {
+            // Menggabungkan nomor baris dengan isi baris
+            /*char line_with_number[LINE_WITH_NUMBER_BUFFER_SIZE];
+            snprintf(line_with_number, LINE_WITH_NUMBER_BUFFER_SIZE, "%d %s", line_number, buffer);*/
+            // Mengirimkan respon ke client
             send(client_socket, buffer, strlen(buffer), 0);
+            
+            line_number++;
         }
         pclose(fp);
     }
@@ -45,15 +53,20 @@ void displayAllAnime(int client_socket) {
 void displayAnimeByGenre(int client_socket, const char *genre) {
     char buffer[BUFFER_SIZE];
     char command[BUFFER_SIZE];
-    sprintf(command, "awk -F',' '$2==\"%s\"' %s", genre, CSV_FILE); // Mencocokkan genre pada kolom kedua
+    sprintf(command, "awk -F',' '$2==\"%s\" { print $3 }' %s", genre, CSV_FILE); // Mencocokkan genre pada kolom kedua
     FILE *fp = popen(command, "r");
     if (fp == NULL) {
         perror("Error executing command");
         strcpy(buffer, "Error executing command");
     } else {
+        int line_number = 1;
         while (fgets(buffer, BUFFER_SIZE, fp) != NULL) {
-            // Send response to client
-            send(client_socket, buffer, strlen(buffer), 0);
+            // Menggabungkan nomor baris dengan isi baris
+            char line_with_number[LINE_WITH_NUMBER_BUFFER_SIZE];
+            snprintf(line_with_number, LINE_WITH_NUMBER_BUFFER_SIZE, "%d %s", line_number, buffer);
+            // Mengirimkan respon ke client
+            send(client_socket, line_with_number, strlen(line_with_number), 0);
+            line_number++;
         }
         pclose(fp);
     }
@@ -62,15 +75,20 @@ void displayAnimeByGenre(int client_socket, const char *genre) {
 void displayAnimeByDay(int client_socket, const char *day) {
     char buffer[BUFFER_SIZE];
     char command[BUFFER_SIZE];
-    sprintf(command, "awk -F',' '$1==\"%s\"' %s", day, CSV_FILE); // Mencocokkan hari pada kolom pertama
+    sprintf(command, "awk -F',' '$1==\"%s\" { print $3 }' %s", day, CSV_FILE); // Mencocokkan hari pada kolom pertama
     FILE *fp = popen(command, "r");
     if (fp == NULL) {
         perror("Error executing command");
         strcpy(buffer, "Error executing command");
     } else {
+        int line_number = 1;
         while (fgets(buffer, BUFFER_SIZE, fp) != NULL) {
-            // Send response to client
-            send(client_socket, buffer, strlen(buffer), 0);
+            // Menggabungkan nomor baris dengan isi baris
+            char line_with_number[LINE_WITH_NUMBER_BUFFER_SIZE];
+            snprintf(line_with_number, LINE_WITH_NUMBER_BUFFER_SIZE, "%d %s", line_number, buffer);
+            // Mengirimkan respon ke client
+            send(client_socket, line_with_number, strlen(line_with_number), 0);
+            line_number++;
         }
         pclose(fp);
     }
