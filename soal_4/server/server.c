@@ -13,13 +13,13 @@
 
 void logAnimeChange(const char *message, const char *type) {
     time_t now = time(NULL);
-    struct tm *timeinfo = localtime(&now);
+    struct tm *timeinfo = localtime(&now); // convert ke time local
     char timeStr[20];
-    strftime(timeStr, sizeof(timeStr), "%d/%m/%y", timeinfo);
+    strftime(timeStr, sizeof(timeStr), "%d/%m/%y", timeinfo); // memasukkan time info sesuai template ke dalam timeStr
 
     FILE *logFile = fopen(LOG_FILE, "a");
     if (logFile != NULL) {
-        fprintf(logFile, "[%s] [%s] %s\n", timeStr, type, message);
+        fprintf(logFile, "[%s] [%s] %s\n", timeStr, type, message); // tulis time, type dan message kedalam logfile
         fclose(logFile);
     } else {
         perror("Error writing to log file");
@@ -30,19 +30,17 @@ void displayAllAnime(int client_socket) {
     char buffer[BUFFER_SIZE];
     char command[BUFFER_SIZE];
     sprintf(command, "awk -F',' '{ print NR, $3 }' %s", CSV_FILE); // Memulai dari baris pertama 
-    FILE *fp = popen(command, "r");
+    FILE *fp = popen(command, "r"); // membuat pointer ke FILE dan membuka pipe baru dimana output akan dikirim dari situ
     if (fp == NULL) {
         perror("Error executing command");
         strcpy(buffer, "Error executing command");
     } else {
         int line_number = 1;
         
+        // loop untuk membaca semua baris yang ada pada fp
         while (fgets(buffer, BUFFER_SIZE - 16, fp) != NULL) {
-            // Menggabungkan nomor baris dengan isi baris
-            /*char line_with_number[LINE_WITH_NUMBER_BUFFER_SIZE];
-            snprintf(line_with_number, LINE_WITH_NUMBER_BUFFER_SIZE, "%d %s", line_number, buffer);*/
-            // Mengirimkan respon ke client
-            send(client_socket, buffer, strlen(buffer), 0);
+            
+            send(client_socket, buffer, strlen(buffer), 0); //  kirim buffer ke client
             
             line_number++;
         }
@@ -61,6 +59,7 @@ void displayAnimeByGenre(int client_socket, const char *genre) {
     } else {
         int line_number = 1;
         while (fgets(buffer, BUFFER_SIZE, fp) != NULL) {
+            
             // Menggabungkan nomor baris dengan isi baris
             char line_with_number[LINE_WITH_NUMBER_BUFFER_SIZE];
             snprintf(line_with_number, LINE_WITH_NUMBER_BUFFER_SIZE, "%d %s", line_number, buffer);
@@ -75,20 +74,23 @@ void displayAnimeByGenre(int client_socket, const char *genre) {
 void displayAnimeByDay(int client_socket, const char *day) {
     char buffer[BUFFER_SIZE];
     char command[BUFFER_SIZE];
-    sprintf(command, "awk -F',' '$1==\"%s\" { print $3 }' %s", day, CSV_FILE); // Mencocokkan hari pada kolom pertama
+    sprintf(command, "awk -F',' '$1==\"%s\" { print $3 }' %s", day, CSV_FILE); // Mencocokkan hari pada kolom pertama dan reformat command
     FILE *fp = popen(command, "r");
     if (fp == NULL) {
         perror("Error executing command");
         strcpy(buffer, "Error executing command");
     } else {
         int line_number = 1;
+        
         while (fgets(buffer, BUFFER_SIZE, fp) != NULL) {
+
             // Menggabungkan nomor baris dengan isi baris
             char line_with_number[LINE_WITH_NUMBER_BUFFER_SIZE];
             snprintf(line_with_number, LINE_WITH_NUMBER_BUFFER_SIZE, "%d %s", line_number, buffer);
             // Mengirimkan respon ke client
             send(client_socket, line_with_number, strlen(line_with_number), 0);
             line_number++;
+
         }
         pclose(fp);
     }
@@ -140,9 +142,13 @@ void editAnime(const char *oldTitle, const char *newDetails, int client_socket) 
             int edited = 0; // Tandai apakah anime telah diedit
             while (fgets(line, BUFFER_SIZE, file) != NULL) {
                 if (strstr(line, oldTitle) != NULL) {
+                    
+                    
                     fputs(newDetails, tempFile); // Tulis detail anime yang baru
                     edited = 1; // Tandai sebagai diedit
-                } else {
+                    
+                } 
+                else {
                     fputs(line, tempFile); // Salin baris ke file sementara tanpa mengubahnya
                 }
             }
@@ -174,7 +180,14 @@ void deleteAnime(const char *title, int client_socket) {
             char line[BUFFER_SIZE];
             int deleted = 0; // Tambahkan variabel deleted untuk menandai apakah anime telah dihapus
             while (fgets(line, BUFFER_SIZE, file) != NULL) {
-                if (strstr(line, title) == NULL) {
+                // Menghapus karakter newline di akhir baris
+                char *newline = strchr(line, '\n');
+                if (newline != NULL) {
+                    *newline = '\0';
+                }
+
+                // Membandingkan judul secara keseluruhan dengan judul yang diberikan
+                if (strcmp(line, title) != 0) {
                     fputs(line, tempFile);
                 } else {
                     deleted = 1; // Jika judul ditemukan, tandai sebagai dihapus
@@ -198,6 +211,7 @@ void deleteAnime(const char *title, int client_socket) {
         perror("Error opening file for deletion");
     }
 }
+
 
 void handle_command(char *command, int client_socket) {
     char buffer[BUFFER_SIZE] = {0};
@@ -279,6 +293,7 @@ int main() {
             break;
         }
         printf("Enter command: ");
+        
         fflush(stdout); // Flush output buffer agar prompt muncul di layar
     }
 
