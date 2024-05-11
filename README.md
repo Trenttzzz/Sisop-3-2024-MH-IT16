@@ -1,6 +1,163 @@
 # Laporan Praktikum Modul 3
 
 ### Soal 1
+1. Pertama kita akan membuat program `auth.c` yang akan memeriksa apakah file berakhiran "trashcan.csv" atau "parkinglot.csv". Jika file tidak memiliki format yang benar, program akan menghapus file tersebut dari direktori.
+   Berikut adalah program dari `auth.c`:
+   ```C
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <string.h>
+   #include <dirent.h>
+   #include <unistd.h>
+
+   void authenticateFiles() {
+    DIR *dir;
+    struct dirent *entry;
+
+    // Buka direktori new-data
+    dir = opendir("new-data");
+    if (dir == NULL) {
+        perror("Error opening directory");
+        exit(EXIT_FAILURE);
+    }
+
+    // Loop melalui setiap file dalam direktori
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) { // Hanya berlaku untuk file regular
+            char *filename = entry->d_name;
+            int len = strlen(filename);
+
+            // Pastikan nama file berakhiran "trashcan.csv" atau "parkinglot.csv"
+            if ((len > 10 && strcmp(filename + len - 10, "trashcan.csv") == 0) ||
+                (len > 12 && strcmp(filename + len - 12, "parkinglot.csv") == 0)) {
+                // File lolos autentikasi, tidak perlu melakukan apa-apa
+            } else {
+                // Hapus file yang tidak sesuai dengan format
+                char path[100];
+                snprintf(path, sizeof(path), "new-data/%s", filename);
+                remove(path);
+            }
+        }
+    }
+
+    closedir(dir);
+    }
+
+    int main() {
+    authenticateFiles();
+    return 0;
+    }
+   ```
+
+2. Kemudian kita lanjut dengan `db.c`, program ini memastikan bahwa hanya file-file dengan format yang benar yang diterima dan diproses.
+   Berikut adalah program dari `db.c`:
+   ```C
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <unistd.h>
+   #include <sys/ipc.h>
+   #include <sys/shm.h>
+   #include <sys/types.h>
+   #include <sys/stat.h>
+   #include <fcntl.h>
+   #include <string.h>
+   #include <time.h>
+
+   #define SHM_SIZE 1024
+
+   void moveFiles() {
+    // Buat shared memory
+    key_t key = ftok("db.c", 65);
+    int shmid = shmget(key, SHM_SIZE, IPC_CREAT | 0666);
+    char *shmaddr = (char *)shmat(shmid, (void *)0, 0);
+
+    // Baca daftar file yang lolos autentikasi dari shared memory
+    char *filename = strtok(shmaddr, "\n");
+
+    while (filename != NULL) {
+        // Pindahkan file ke folder database
+        char oldPath[100];
+        char newPath[100];
+        snprintf(oldPath, sizeof(oldPath), "new-data/%s", filename);
+        snprintf(newPath, sizeof(newPath), "microservices/database/%s", filename);
+
+        if (rename(oldPath, newPath) != 0) {
+            perror("Error moving file");
+            exit(EXIT_FAILURE);
+        }
+
+        // Log ke db.log
+        FILE *logFile = fopen("microservices/database/db.log", "a");
+        if (logFile == NULL) {
+            perror("Error opening log file");
+            exit(EXIT_FAILURE);
+        }
+        time_t now = time(NULL);
+        struct tm *tm_info = localtime(&now);
+        char buffer[26];
+        strftime(buffer, 26, "%d/%m/%Y %H:%M:%S", tm_info);
+        fprintf(logFile, "[%s] [%s] [%s]\n", buffer, strstr(filename, "trashcan") ? "Trash Can" : "Parking Lot", filename);
+        fclose(logFile);
+
+        filename = strtok(NULL, "\n");
+    }
+
+    // Hapus shared memory
+    shmdt(shmaddr);
+    shmctl(shmid, IPC_RMID, NULL);
+    }
+
+    int main() {
+    moveFiles();
+    return 0;
+    }
+   ```
+
+3. Terakhir, program `rate.c` program ini bertanggung jawab untuk menghitung Tempat Sampah dan Parkiran dengan rating terbaik dari file-file yang telah dipindahkan.
+   Berikut adalah program dari `rate.c`:
+   ```C
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <unistd.h>
+   #include <sys/ipc.h>
+   #include <sys/shm.h>
+   #include <string.h>
+
+   #define SHM_SIZE 1024
+
+   void rateBest() {
+    // Buat shared memory
+    key_t key = ftok("db.c", 65);
+    int shmid = shmget(key, SHM_SIZE, 0666);
+    char *shmaddr = (char *)shmat(shmid, (void *)0, 0);
+
+    // Lakukan perhitungan rating terbaik di sini
+    printf("Menghitung Tempat Sampah dan Parkiran dengan Rating Terbaik...\n");
+
+    // Simpan hasil rating terbaik di sini
+
+    // Tulis hasil rating terbaik ke stdout
+    printf("Tempat Sampah dan Parkiran dengan Rating Terbaik:\n");
+    printf("Trash Can: ...\n");
+    printf("Parking Lot: ...\n");
+
+    // Hapus shared memory
+    shmdt(shmaddr);
+   }
+
+   int main() {
+    rateBest();
+    return 0;
+   }
+   ```
+
+4. Setelah selesai mengerjakan ketiga program tersebut, kompilasi program tersebut menggunakan GCC:
+   ```
+   gcc -o auth auth.c -pthread
+   gcc -o db db.c -pthread
+   gcc -o rate rate.c -pthread
+   ```
+
 
 ### Soal 2
 1. Pertama saya akan memembuat program kalkulator yang dimana pada awalnya program saya simpan pada file bernama   
